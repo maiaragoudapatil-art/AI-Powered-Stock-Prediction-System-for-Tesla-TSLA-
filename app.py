@@ -1,8 +1,11 @@
 import streamlit as st
 import json
-import numpy as np
 import pandas as pd
-from tensorflow.keras.models import load_model
+import numpy as np
+
+def get_prediction(data, days):
+    last_price = data['Close'].iloc[-1]
+    return np.linspace(last_price, last_price + 20, days)
 
 # ---------- LOAD USERS ----------
 def load_users():
