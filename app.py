@@ -23,7 +23,7 @@ def authenticate(username, password):
     users = load_users()
     return username in users and users[username] == password
 
-# ---------------- LOGIN UI ----------------
+# ---------------- LOGIN PAGE ----------------
 if not st.session_state.logged_in:
     st.title("🔐 AI Stock Dashboard Login")
 
@@ -40,13 +40,23 @@ if not st.session_state.logged_in:
 
 # ---------------- MAIN APP ----------------
 else:
-    st.title("📈 AI Stock Prediction Dashboard")
 
-    # Load dataset
+    # -------- HEADER WITH LOGOUT --------
+    col1, col2 = st.columns([8,1])
+
+    with col1:
+        st.title("📈 AI Stock Prediction Dashboard")
+
+    with col2:
+        if st.button("🚪 Logout"):
+            st.session_state.logged_in = False
+            st.rerun()
+
+    # -------- LOAD DATA --------
     url = "https://raw.githubusercontent.com/maiaragoudapatil-art/AI-Powered-Stock-Prediction-System-for-Tesla-TSLA-/main/TSLA.csv"
     df = pd.read_csv(url)
 
-    # ---------------- TOP METRICS ----------------
+    # -------- METRICS --------
     current_price = df['Close'].iloc[-1]
     prev_price = df['Close'].iloc[-2]
     change = current_price - prev_price
@@ -56,7 +66,7 @@ else:
     col2.metric("📊 Change", f"{change:.2f}")
     col3.metric("📉 Volatility", f"{df['Close'].pct_change().std():.4f}")
 
-    # ---------------- INTERACTIVE CHART ----------------
+    # -------- INTERACTIVE GRAPH --------
     st.subheader("📊 Stock Price Trend")
 
     fig = go.Figure()
@@ -67,17 +77,14 @@ else:
         line=dict(color='cyan')
     ))
 
-    fig.update_layout(
-        template="plotly_dark",
-        hovermode="x unified"
-    )
+    fig.update_layout(template="plotly_dark", hovermode="x unified")
 
     st.plotly_chart(fig, use_container_width=True)
 
-    # ---------------- INPUT ----------------
+    # -------- INPUT --------
     days = st.slider("Select Prediction Days", 1, 10)
 
-    # ---------------- PREDICTION ----------------
+    # -------- PREDICTION --------
     def predict(data, steps):
         last = data['Close'].iloc[-1]
         trend = np.linspace(last, last * (1 + 0.01 * steps), steps)
@@ -86,7 +93,7 @@ else:
     prediction = predict(df, days)
     predicted_price = prediction[-1]
 
-    # ---------------- FORECAST GRAPH (FIXED) ----------------
+    # -------- FORECAST GRAPH --------
     st.subheader("🔮 Forecast")
 
     recent_data = df['Close'][-50:].values
@@ -120,15 +127,15 @@ else:
 
     st.plotly_chart(fig2, use_container_width=True)
 
-    # ---------------- INSIGHTS ----------------
+    # -------- INSIGHTS --------
     st.subheader("💼 Trading Insights")
 
     col1, col2, col3 = st.columns(3)
     col1.metric("📈 Current Price", f"${current_price:.2f}")
     col2.metric("🔮 Predicted Price", f"${predicted_price:.2f}")
-    col3.metric("📊 Change", f"{predicted_price - current_price:.2f}")
+    col3.metric("📊 Expected Change", f"{predicted_price - current_price:.2f}")
 
-    # ---------------- SIGNAL ----------------
+    # -------- SIGNAL --------
     if predicted_price > current_price:
         st.success("📈 Strong BUY Signal")
         trend = "Uptrend"
@@ -136,7 +143,7 @@ else:
         st.error("📉 Strong SELL Signal")
         trend = "Downtrend"
 
-    # ---------------- RISK ----------------
+    # -------- RISK --------
     volatility = df['Close'].pct_change().std()
 
     if volatility > 0.02:
@@ -144,7 +151,7 @@ else:
     else:
         st.info("✅ Low Risk")
 
-    # ---------------- AI EXPLANATION ----------------
+    # -------- AI EXPLANATION --------
     st.subheader("🧠 AI Insight")
 
     st.markdown(f"""
@@ -155,13 +162,13 @@ else:
     - **Confidence:** Moderate  
 
     ### Explanation:
-    The system analyzes recent stock movements and predicts a **{trend.lower()} trend** 
-    based on momentum and volatility.
+    The system predicts a **{trend.lower()} trend** based on recent momentum 
+    and volatility patterns.
 
     ⚠️ This is not financial advice.
     """)
 
-    # ---------------- PROFIT ----------------
+    # -------- PROFIT --------
     st.subheader("💰 Profit Simulation")
 
     profit = (predicted_price - current_price) * 10
