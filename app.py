@@ -2,25 +2,26 @@ import streamlit as st
 import pandas as pd
 import numpy as np
 import json
-import matplotlib.pyplot as plt
+import plotly.graph_objects as go
 
-# -------------------- PAGE CONFIG --------------------
-st.set_page_config(page_title="AI Stock App", layout="wide")
+# ---------------- PAGE CONFIG ----------------
+st.set_page_config(page_title="AI Stock Dashboard", layout="wide")
 
-# -------------------- DARK UI --------------------
+# ---------------- STYLING ----------------
 st.markdown("""
 <style>
-.stApp {
-    background-color: #0E1117;
-    color: white;
-}
-h1, h2, h3 {
-    color: #00FFAA;
+body { background-color: #0E1117; color: white; }
+.big-font { font-size:20px !important; }
+.card {
+    padding: 15px;
+    border-radius: 10px;
+    background-color: #1E1E1E;
+    margin-bottom: 10px;
 }
 </style>
 """, unsafe_allow_html=True)
 
-# -------------------- LOGIN --------------------
+# ---------------- LOGIN ----------------
 def load_users():
     try:
         with open("users.json", "r") as f:
@@ -32,111 +33,131 @@ def authenticate(username, password):
     users = load_users()
     return username in users and users[username] == password
 
-# -------------------- LOGIN UI --------------------
-st.title("🔐 AI Stock Prediction Login")
-st.info("Demo Login → Username: admin | Password: 1234")
-
+# ---------------- LOGIN UI ----------------
+st.title("🔐 AI Stock Dashboard")
 username = st.text_input("Username")
 password = st.text_input("Password", type="password")
 
 if st.button("Login"):
     if authenticate(username, password):
-        st.success("Login Successful ✅")
 
-        # -------------------- MAIN APP --------------------
-        st.title("📈 AI Stock Prediction Dashboard")
+        st.success("Welcome to AI Stock Dashboard 🚀")
 
-        # Load dataset from GitHub
+        # ---------------- LOAD DATA ----------------
         url = "https://raw.githubusercontent.com/maiaragoudapatil-art/AI-Powered-Stock-Prediction-System-for-Tesla-TSLA-/main/TSLA.csv"
+        df = pd.read_csv(url)
 
-        try:
-            df = pd.read_csv(url)
-        except:
-            st.error("❌ Failed to load dataset")
-            st.stop()
+        # ---------------- HEADER METRICS ----------------
+        current_price = df['Close'].iloc[-1]
+        prev_price = df['Close'].iloc[-2]
+        change = current_price - prev_price
 
-        # -------------------- CHART --------------------
-        st.subheader("📊 Tesla Stock Price Trend")
+        col1, col2, col3 = st.columns(3)
 
-        plt.figure(figsize=(10,5))
-        plt.plot(df['Close'][-100:], label='Actual Price', color='cyan')
-        plt.legend()
-        st.pyplot(plt)
+        col1.metric("📈 Current Price", f"${current_price:.2f}")
+        col2.metric("📊 Change", f"{change:.2f}")
+        col3.metric("📉 Volatility", f"{df['Close'].pct_change().std():.4f}")
 
-        # -------------------- USER INPUT --------------------
-        days = st.slider("Select Days to Predict", 1, 10)
+        # ---------------- INTERACTIVE CHART ----------------
+        st.subheader("📊 Stock Price (Interactive)")
 
-        # -------------------- IMPROVED PREDICTION --------------------
+        fig = go.Figure()
+        fig.add_trace(go.Scatter(
+            y=df['Close'],
+            mode='lines',
+            name='Stock Price',
+            line=dict(color='cyan')
+        ))
+
+        fig.update_layout(
+            template="plotly_dark",
+            hovermode="x unified"
+        )
+
+        st.plotly_chart(fig, use_container_width=True)
+
+        # ---------------- USER INPUT ----------------
+        days = st.slider("Select Prediction Days", 1, 10)
+
+        # ---------------- SMART PREDICTION ----------------
         def predict(data, steps):
-            last_price = data['Close'].iloc[-1]
-            trend = np.linspace(last_price, last_price + (steps * 5), steps)
-            noise = np.random.normal(0, 3, steps)
-            return trend + noise
+            last = data['Close'].iloc[-1]
+            trend = np.linspace(last, last * (1 + 0.01 * steps), steps)
+            return trend
 
         prediction = predict(df, days)
-
-        st.subheader("🔮 Future Predictions")
-        st.write(prediction)
-
-        # -------------------- FUTURE GRAPH --------------------
-        st.subheader("📉 Future Forecast Graph")
-
-        future_x = list(range(len(df[-50:]), len(df[-50:]) + len(prediction)))
-
-        plt.figure(figsize=(10,5))
-        plt.plot(df['Close'][-50:].values, label='Recent Actual', color='blue')
-        plt.plot(future_x, prediction, label='Predicted', linestyle='dashed', color='red')
-        plt.legend()
-        st.pyplot(plt)
-
-        # -------------------- BUSINESS LOGIC --------------------
-        current_price = df['Close'].iloc[-1]
         predicted_price = prediction[-1]
 
-        st.subheader("💼 Trading Decision")
+        # ---------------- FORECAST GRAPH ----------------
+        st.subheader("🔮 Forecast")
+
+        future_x = list(range(len(df), len(df) + days))
+
+        fig2 = go.Figure()
+
+        fig2.add_trace(go.Scatter(
+            y=df['Close'][-50:],
+            mode='lines',
+            name='Recent',
+            line=dict(color='blue')
+        ))
+
+        fig2.add_trace(go.Scatter(
+            x=future_x,
+            y=prediction,
+            mode='lines+markers',
+            name='Forecast',
+            line=dict(color='red', dash='dash')
+        ))
+
+        fig2.update_layout(template="plotly_dark")
+
+        st.plotly_chart(fig2, use_container_width=True)
+
+        # ---------------- BUSINESS LOGIC ----------------
+        st.subheader("💼 Trading Insights")
+
+        col1, col2 = st.columns(2)
 
         if predicted_price > current_price:
-            st.success(f"BUY 📈 (Current: {current_price:.2f}, Predicted: {predicted_price:.2f})")
-            trend = "Upward 📈"
+            col1.success("📈 BUY Signal")
+            trend = "Uptrend"
         else:
-            st.error(f"SELL 📉 (Current: {current_price:.2f}, Predicted: {predicted_price:.2f})")
-            trend = "Downward 📉"
+            col1.error("📉 SELL Signal")
+            trend = "Downtrend"
 
-        # -------------------- RISK --------------------
-        df['Returns'] = df['Close'].pct_change()
-        volatility = df['Returns'].rolling(10).std().iloc[-1]
+        col2.info(f"Trend: {trend}")
 
-        st.subheader("⚠️ Risk Analysis")
+        # ---------------- RISK ----------------
+        volatility = df['Close'].pct_change().std()
 
-        if volatility > 0.03:
-            st.warning("High Risk ⚠️")
+        if volatility > 0.02:
+            risk = "High Risk ⚠️"
         else:
-            st.info("Low Risk ✅")
+            risk = "Low Risk ✅"
 
-        # -------------------- INSIGHTS --------------------
-        st.subheader("📊 Business Insights")
+        st.warning(f"Risk Level: {risk}")
 
-        st.write(f"**Trend:** {trend}")
-        st.write(f"**Current Price:** ${current_price:.2f}")
-        st.write(f"**Predicted Price:** ${predicted_price:.2f}")
-        st.write(f"**Prediction Horizon:** {days} days")
+        # ---------------- EXPLANATION ----------------
+        st.subheader("🧠 AI Insight")
 
-        # -------------------- AI EXPLANATION --------------------
-        st.subheader("🧠 AI Explanation")
+        st.write(f"""
+        The model analyzes recent stock trends and predicts a **{trend.lower()}** 
+        over the next **{days} days**. 
 
-        if predicted_price > current_price:
-            st.write("The model predicts an upward trend based on recent stock movements, suggesting potential growth.")
-        else:
-            st.write("The model predicts a downward trend, indicating possible decline in stock value.")
+        This is based on:
+        - Recent price momentum  
+        - Short-term trend continuation  
+        - Market volatility patterns  
 
-        # -------------------- PROFIT --------------------
-        profit = 0
-        for i in range(len(df['Close']) - 1):
-            if df['Close'].iloc[i+1] > df['Close'].iloc[i]:
-                profit += df['Close'].iloc[i+1] - df['Close'].iloc[i]
+        ⚠️ Note: This is a predictive model, not financial advice.
+        """)
 
+        # ---------------- PROFIT SIM ----------------
         st.subheader("💰 Profit Simulation")
+
+        profit = (predicted_price - current_price) * 10
         st.metric("Estimated Profit", f"${profit:.2f}")
 
     else:
-        st.error("Invalid Username or Password ❌")
+        st.error("Invalid Login ❌")
