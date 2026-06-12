@@ -30,7 +30,7 @@ if st.button("Login"):
         st.title("📈 AI Stock Prediction System")
 
         # Load Data
-        df = pd.read_csv("TSLA.csv")
+        df = pd.read_csv("data/TSLA.csv")
         data = df[['Close']]
 
         # Dummy model loading (replace with your saved model)
